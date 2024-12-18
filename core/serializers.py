@@ -71,35 +71,43 @@ class UserSerializer(serializers.ModelSerializer):
             'password': {'write_only': True}  # Make password write-only
         }
 
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from .models import OfficeStaff, User  # Import your models
 
-User = get_user_model()
 class OfficeStaffSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())  # Use the custom User model
-    email = serializers.EmailField(source="user.email", required=True)
+    user = UserSerializer()
+    email = serializers.EmailField(source="user.email", required=True)  # Include the email field
+
     class Meta:
         model = OfficeStaff
-        fields = ['user', 'department', 'position', 'joining_date']
+        fields = ['user', 'email', 'department', 'position', 'joining_date']
 
     def create(self, validated_data):
+        # Extract user data from validated data
         user_data = validated_data.pop('user')
-        password = user_data.pop('password', None)
-        user_data['is_staff'] = True  # Ensure the created user is marked as staff
+
+        # Set the role for the user as 'staff'
+        user_data['role'] = 'staff'
+
+        # Handle password hashing if provided
+        password = user_data.get('password')
+        if password:
+            user_data['password'] = make_password(password)  # Hash the password
+
+        # Create and save the User instance
         user = User.objects.create(**user_data)
 
-        if password:
-            user.set_password(password)
-            user.save()
+        # Extract the office staff data (department, position, joining_date) from validated_data
+        department = validated_data.get('department')
+        position = validated_data.get('position')
+        joining_date = validated_data.get('joining_date')
 
-        office_staff = OfficeStaff.objects.create(user=user, **validated_data)
+        # Create and save the OfficeStaff instance
+        office_staff = OfficeStaff.objects.create(
+            user=user, department=department, position=position, joining_date=joining_date
+        )
+
         return office_staff
-
-
-    def validate_custom_id(self, value):
-        if not value:
-            raise serializers.ValidationError("custom_id is required.")
-        return value
 
 
 class LibrarianSerializer(serializers.ModelSerializer):

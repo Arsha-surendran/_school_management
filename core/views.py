@@ -188,6 +188,11 @@ class CreateLibrarianView(APIView):
 class StudentView(APIView):
     permission_classes = [IsAdminUser]  
 
+    def get(self, request):
+        students = Student.objects.all()  # Query all students
+        serializer = StudentSerializer(students, many=True)  # Serialize the data
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def post(self, request):
         student_serializer = StudentSerializer(data=request.data)
         if student_serializer.is_valid():
